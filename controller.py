@@ -2,6 +2,7 @@ import pygame
 from numpy.ma.core import angle
 
 import shapes
+from camera import camera
 
 
 class Controller:
@@ -12,11 +13,11 @@ class Controller:
         keys = pygame.key.get_pressed()
 
         if keys[pygame.K_w]:
-            entity.move(0,-speed,0)
+            entity.move(0,speed,0)
         if keys[pygame.K_a]:
             entity.move(-speed,0,0)
         if keys[pygame.K_s]:
-            entity.move(0,speed,0)
+            entity.move(0,-speed,0)
         if keys[pygame.K_d]:
             entity.move(speed,0,0)
 
@@ -34,3 +35,9 @@ class Controller:
             entity.scale(1.1)
         if keys[pygame.K_PAGEDOWN]:
             entity.scale(0.9)
+
+        mouse_button = pygame.mouse.get_pressed()
+        if mouse_button[0]:
+            pos = pygame.mouse.get_pos()
+            camera.get_ray(pos)
+

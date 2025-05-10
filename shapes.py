@@ -43,10 +43,11 @@ class shape2D:
 
 
 class shape3D:
-    def __init__(self, vertices: list, edges: list, color: tuple = (255, 255, 255)):
+    def __init__(self, vertices: list, edges: list, faces: list, color: tuple = (255, 255, 255)):
         self.color = color
         self.vertices = vertices  # List of (x, y, z) tuples
         self.edges = edges  # List of edge index pairs
+        self.faces = faces
 
     def calc_mean(self):
         sum_x = sum(v[0] for v in self.vertices)
