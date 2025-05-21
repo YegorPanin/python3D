@@ -1,7 +1,7 @@
 import pygame
 import pygame as pg
 import numpy as np
-from camera import camera
+from camera import Camera
 import sys
 from controller import Controller
 from shapes import shape3D
@@ -13,7 +13,7 @@ BACKGROUND_COLOR = (0,0,0)
 screen = pg.display.set_mode((WIDTH,HEIGHT))
 FPS = 60
 clock = pg.time.Clock()
-cam = camera(screen, WIDTH, HEIGHT)
+cam = Camera(screen, WIDTH, HEIGHT)
 n = 10
 
 vertices = [
@@ -52,6 +52,6 @@ while True:
 
     cam.draw(cube)
 
-    Controller.listen_control(cube)
+    Controller.listen_control(cam)
     pg.display.update()
     clock.tick(FPS)

@@ -2,7 +2,7 @@ import pygame
 import numpy as np
 from raycasting import Ray
 
-class camera:
+class Camera:
     def __init__(self, screen, width, height, position=(0, 0, -150), zoom=500):
         self.position = np.array(position, dtype=float)  # Позиция камеры в 3D (x, y, z)
         self.screen = screen
@@ -13,7 +13,15 @@ class camera:
         self.pitch = 0.0  # Поворот вокруг оси X (вверх/вниз)
 
     def move(self, dx, dy, dz):
-        self.position += np.array([dx,dy,dz])
+        """Перемещение камеры по осям"""
+        self.position += np.array([dx, dy, dz])
+
+    def rotate(self, dyaw, dpitch):
+        """Поворот камеры (изменение yaw и pitch)"""
+        self.yaw += dyaw
+        self.pitch += dpitch
+        # Ограничиваем pitch, чтобы избежать переворота
+        self.pitch = np.clip(self.pitch, -np.pi/2, np.pi/2)
 
     def project(self, point_3d):
         """Проекция точки из 3D в 2D с учетом поворотов и перспективы"""
@@ -68,14 +76,14 @@ class camera:
 
             # Центр грани для расчета расстояния
             center = np.mean([vertices[i0], vertices[i1], vertices[i2]], axis=0)
-            distance = int(np.linalg.norm(center - pos))
+            distance = int(np.linalg.norm(center - self.position))
 
             # Рассчитываем цвет с учетом расстояния
             color = shape.color
             color = (
-                max(0, color[0] - 0.5 * distance),
-                max(0, color[1] - distance),
-                max(0, color[2] - distance)
+                max(0, int(color[0] - 0.5 * distance)),
+                max(0, int(color[1] - distance)),
+                max(0, int(color[2] - distance))
             )
 
             # Рисуем грань
