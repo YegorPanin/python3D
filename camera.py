@@ -3,51 +3,80 @@ import numpy as np
 from raycasting import Ray
 
 class camera:
-    def __init__(self, screen, width, height, position=(0, 0, -5), zoom=1.0):
-        self.position = np.array(position, dtype=float)  # 3D позиция камеры
+    def __init__(self, screen, width, height, position=(0, 0, -150), zoom=500):
+        self.position = np.array(position, dtype=float)  # Позиция камеры в 3D (x, y, z)
         self.screen = screen
         self.zoom = zoom
         self.width = width
         self.height = height
+        self.yaw = 0.0  # Поворот вокруг оси Y (влево/вправо)
+        self.pitch = 0.0  # Поворот вокруг оси X (вверх/вниз)
+
+    def move(self, dx, dy, dz):
+        self.position += np.array([dx,dy,dz])
 
     def project(self, point_3d):
-        """Проекция одной точки из 3D в 2D"""
-        half_w = self.width / 2
-        half_h = self.height / 2
+        """Проекция точки из 3D в 2D с учетом поворотов и перспективы"""
+        # Шаг 1: Перенос точки относительно камеры
+        trans_point = point_3d - self.position
+        x, y, z = trans_point
 
-        x, y, z = point_3d
-        screen_x = int((x - self.position[0]) * self.zoom + half_w)
-        screen_y = int((-y - self.position[1]) * self.zoom + half_h)
+        # Шаг 2: Поворот вокруг оси Y (yaw)
+        cos_yaw, sin_yaw = np.cos(self.yaw), np.sin(self.yaw)
+        x_rot = x * cos_yaw + z * sin_yaw
+        z_rot = -x * sin_yaw + z * cos_yaw
+
+        # Шаг 3: Поворот вокруг оси X (pitch)
+        cos_pitch, sin_pitch = np.cos(self.pitch), np.sin(self.pitch)
+        y_rot = y * cos_pitch - z_rot * sin_pitch
+        z_rot_new = y * sin_pitch + z_rot * cos_pitch
+
+        # Проверка, не находится ли точка за камерой
+        if z_rot_new <= 0:
+            return None  # Точка за камерой — не рисуем
+
+        # Шаг 4: Перспективная проекция
+        scale = self.zoom / z_rot_new
+        screen_x = int(x_rot * scale + self.width / 2)
+        screen_y = int(-y_rot * scale + self.height / 2)  # Инвертируем Y
+
         return (screen_x, screen_y)
 
     def project_all(self, vertices):
-        return [self.project(v) for v in vertices]
-
-    def get_ray(self, local_pos, shape):
-        """Создаёт луч из камеры через точку экрана (мыши)"""
-        half_w = self.width / 2
-        half_h = self.height / 2
-
-        x = (local_pos[0] - half_w) / self.zoom + self.position[0]
-        y = -(local_pos[1] - half_h) / self.zoom + self.position[1]
-        z = self.position[2]
-
-        origin = np.array([x, y, z])
-        direction = np.array([0, 0, 1])  # Предположим, что камера смотрит по оси Z
-
-        ray = Ray(origin, direction)
-        closest_face = ray.cast(shape)
-        color = (0,0,0)
-        if closest_face:
-            color = shape.color
-        return color
+        """Проекция всех вершин с учетом проверки на видимость"""
+        projected = []
+        for v in vertices:
+            proj = self.project(v)
+            projected.append(proj)
+        return projected
 
     def draw(self, shape):
-        for i in range(self.width):
-            for j in range(self.height):
-                pos = (i, j)
-                color = self.get_ray(pos, shape)
-                self.screen.set_at(pos, color)
+        pos = self.position
+        vertices = shape.vertices
+        projected_verts = self.project_all(vertices)
 
+        for face in shape.faces:
+            # Получаем индексы вершин для грани
+            i0, i1, i2 = face
+            v0 = projected_verts[i0]
+            v1 = projected_verts[i1]
+            v2 = projected_verts[i2]
 
+            # Пропускаем грань, если хотя бы одна вершина вне видимости
+            if None in (v0, v1, v2):
+                continue
 
+            # Центр грани для расчета расстояния
+            center = np.mean([vertices[i0], vertices[i1], vertices[i2]], axis=0)
+            distance = int(np.linalg.norm(center - pos))
+
+            # Рассчитываем цвет с учетом расстояния
+            color = shape.color
+            color = (
+                max(0, color[0] - 0.5 * distance),
+                max(0, color[1] - distance),
+                max(0, color[2] - distance)
+            )
+
+            # Рисуем грань
+            pygame.draw.polygon(self.screen, color, [v0, v1, v2])

@@ -36,8 +36,5 @@ class Controller:
         if keys[pygame.K_PAGEDOWN]:
             entity.scale(0.9)
 
-        mouse_button = pygame.mouse.get_pressed()
-        if mouse_button[0]:
-            pos = pygame.mouse.get_pos()
-            camera.get_ray(pos)
+
 
