@@ -4,13 +4,14 @@ from raycasting import Ray
 
 class Camera:
     def __init__(self, screen, width, height, position=(0, 0, -150), zoom=500):
-        self.position = np.array(position, dtype=float)  # Позиция камеры в 3D (x, y, z)
+        self.position = np.array(position, dtype=float)
         self.screen = screen
         self.zoom = zoom
         self.width = width
         self.height = height
-        self.yaw = 0.0  # Поворот вокруг оси Y (влево/вправо)
-        self.pitch = 0.0  # Поворот вокруг оси X (вверх/вниз)
+        self.yaw = 0.0
+        self.pitch = 0.0
+        self.shapes = []  # Хранение объектов Shape3D
 
     def move(self, dx, dy, dz):
         """Перемещение камеры по осям"""
@@ -20,71 +21,73 @@ class Camera:
         """Поворот камеры (изменение yaw и pitch)"""
         self.yaw += dyaw
         self.pitch += dpitch
-        # Ограничиваем pitch, чтобы избежать переворота
-        self.pitch = np.clip(self.pitch, -np.pi/2, np.pi/2)
+        self.pitch = np.clip(self.pitch, -np.pi / 2, np.pi / 2)
 
     def project(self, point_3d):
         """Проекция точки из 3D в 2D с учетом поворотов и перспективы"""
-        # Шаг 1: Перенос точки относительно камеры
         trans_point = point_3d - self.position
         x, y, z = trans_point
 
-        # Шаг 2: Поворот вокруг оси Y (yaw)
+        # Поворот вокруг Y (yaw)
         cos_yaw, sin_yaw = np.cos(self.yaw), np.sin(self.yaw)
         x_rot = x * cos_yaw + z * sin_yaw
         z_rot = -x * sin_yaw + z * cos_yaw
 
-        # Шаг 3: Поворот вокруг оси X (pitch)
+        # Поворот вокруг X (pitch)
         cos_pitch, sin_pitch = np.cos(self.pitch), np.sin(self.pitch)
         y_rot = y * cos_pitch - z_rot * sin_pitch
         z_rot_new = y * sin_pitch + z_rot * cos_pitch
 
-        # Проверка, не находится ли точка за камерой
         if z_rot_new <= 0:
-            return None  # Точка за камерой — не рисуем
+            return None
 
-        # Шаг 4: Перспективная проекция
+        # Перспективная проекция
         scale = self.zoom / z_rot_new
         screen_x = int(x_rot * scale + self.width / 2)
-        screen_y = int(-y_rot * scale + self.height / 2)  # Инвертируем Y
+        screen_y = int(-y_rot * scale + self.height / 2)
 
         return (screen_x, screen_y)
 
-    def project_all(self, vertices):
-        """Проекция всех вершин с учетом проверки на видимость"""
-        projected = []
-        for v in vertices:
-            proj = self.project(v)
-            projected.append(proj)
-        return projected
+    def add(self, shape):
+        """Добавление объекта Shape3D"""
+        self.shapes.append(shape)
 
-    def draw(self, shape):
-        pos = self.position
-        vertices = shape.vertices
-        projected_verts = self.project_all(vertices)
+    def draw(self):
+        """Отрисовка всех объектов в порядке удалённости"""
+        all_polygons = []
 
-        for face in shape.faces:
-            # Получаем индексы вершин для грани
-            i0, i1, i2 = face
-            v0 = projected_verts[i0]
-            v1 = projected_verts[i1]
-            v2 = projected_verts[i2]
+        for shape in self.shapes:
+            vertices = shape.vertices
+            projected_verts = [self.project(v) for v in vertices]
 
-            # Пропускаем грань, если хотя бы одна вершина вне видимости
-            if None in (v0, v1, v2):
-                continue
+            for face in shape.faces:
+                indices = list(face)
+                points = [projected_verts[i] for i in indices]
+                if None in points:
+                    continue
 
-            # Центр грани для расчета расстояния
-            center = np.mean([vertices[i0], vertices[i1], vertices[i2]], axis=0)
-            distance = int(np.linalg.norm(center - self.position))
+                # Центр грани
+                face_vertices = [vertices[i] for i in indices]
+                center = np.mean(face_vertices, axis=0)
+                distance = np.linalg.norm(center - self.position)
 
-            # Рассчитываем цвет с учетом расстояния
-            color = shape.color
-            color = (
-                max(0, int(color[0] - 0.5 * distance)),
-                max(0, int(color[1] - distance)),
-                max(0, int(color[2] - distance))
-            )
+                # Цвет с учетом расстояния
+                color = shape.color
+                color = (
+                    max(0, int(color[0] - 0.5 * distance)),
+                    max(0, int(color[1] - distance)),
+                    max(0, int(color[2] - distance))
+                )
 
-            # Рисуем грань
-            pygame.draw.polygon(self.screen, color, [v0, v1, v2])
+                all_polygons.append({
+                    'distance': distance,
+                    'points': points,
+                    'color': color
+                })
+
+        # Сортировка по расстоянию (от дальнего к ближнему)
+        all_polygons.sort(key=lambda p: p['distance'], reverse=True)
+
+        # Отрисовка
+        for poly in all_polygons:
+            pygame.draw.polygon(self.screen, poly['color'], poly['points'])

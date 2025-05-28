@@ -39,8 +39,40 @@ faces = [
     (4,5,6),
     (4,7,6)
 ]
+floor_verts = []
+floor_faces = []
+
+# Параметры сетки
+grid_size = 10  # 10x10 квадратов -> 100 квадратов, 200 треугольников
+step = 20  # шаг между вершинами
+
+# Генерация вершин
+for x in range(grid_size + 1):
+    for z in range(grid_size + 1):
+        # координаты вершины
+        vertex = (x * step - grid_size * step / 2, -50, z * step - grid_size * step / 2)
+        floor_verts.append(vertex)
+
+# Генерация полигонов (каждый квадрат делится на два треугольника)
+index = 0
+for x in range(grid_size):
+    for z in range(grid_size):
+        # Индексы вершин квадрата
+        a = z * (grid_size + 1) + x
+        b = a + 1
+        c = a + (grid_size + 1)
+        d = c + 1
+
+        # Первый треугольник
+        floor_faces.append((a, b, c))
+        # Второй треугольник
+        floor_faces.append((c, b, d))
+
+floor = shape3D(floor_verts, [], floor_faces, color = (0,225,0))
 
 cube = shape3D(vertices, edges, faces, color=(255, 0, 0))
+cam.add(cube)
+cam.add(floor)
 
 while True:
     for event in pg.event.get():
@@ -50,7 +82,7 @@ while True:
     cube.rotate(0.001, 0.001)
     screen.fill(BACKGROUND_COLOR)
 
-    cam.draw(cube)
+    cam.draw()
 
     Controller.listen_control(cam)
     pg.display.update()
